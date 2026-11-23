@@ -70,7 +70,7 @@ def on_message(client, userdata, msg):
 @app.on_event("startup")
 def iniciar_mqtt():
     client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id="fastapi_unir_michelle_srv")
-    client.tls_set(cert_reqs=ssl.CERT_NONE)
+    client.tls_set_context(ssl.create_default_context())
     client.on_connect = on_connect
     client.on_message = on_message
     client.connect_async(MQTT_BROKER, MQTT_PORT, keepalive=60)
