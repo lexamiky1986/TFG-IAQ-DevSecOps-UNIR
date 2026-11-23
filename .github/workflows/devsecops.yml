@@ -1,36 +1,38 @@
-services:
-  influxdb:
-    image: influxdb:2.7-alpine
-    container_name: iaq_influxdb
-    ports:
-      - "8086:8086"
-    environment:
-      - DOCKER_INFLUXDB_INIT_MODE=setup
-      - DOCKER_INFLUXDB_INIT_USERNAME=admin_iaq
-      - DOCKER_INFLUXDB_INIT_PASSWORD=AdminPasswordSegura2026!
-      - DOCKER_INFLUXDB_INIT_ORG=unir
-      - DOCKER_INFLUXDB_INIT_BUCKET=iaq_telemetria
-      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=unir-iaq-token-seguro-2026
-    volumes:
-      - influxdb_data:/var/lib/influxdb2
-    restart: unless-stopped
+name: Pipeline DevSecOps IAQ - UNIR
 
-  backend-iaq:
-    build: .
-    container_name: iaq_backend_fastapi
-    ports:
-      - "8000:8000"
-    environment:
-      - MQTT_BROKER=broker.emqx.io
-      - MQTT_PORT=8883
-      - MQTT_TOPIC=unir/iaq/michelle1042/telemetria
-      - INFLUX_URL=http://influxdb:8086
-      - INFLUX_TOKEN=unir-iaq-token-seguro-2026
-      - INFLUX_ORG=unir
-      - INFLUX_BUCKET=iaq_telemetria
-    depends_on:
-      - influxdb
-    restart: unless-stopped
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
 
-volumes:
-  influxdb_data:
+jobs:
+  sast-y-docker:
+    name: SAST (Bandit) y Contenedor Docker
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clonar repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Instalar dependencias y Bandit
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Escaneo SAST con Bandit
+        run: |
+          bandit -r app/ -f txt
+          bandit -r app/ -f json -o bandit-report.json
+
+      - name: Guardar reporte Bandit
+        uses: actions/upload-artifact@v4
+        with:
+          name: bandit-report
+          path: bandit-report.json
+
+      - name: Construir imagen Docker Non-Root
+        run: docker build -t iaq-backend-unir:latest .
